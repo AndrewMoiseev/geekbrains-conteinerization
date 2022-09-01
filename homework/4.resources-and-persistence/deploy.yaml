@@ -1,0 +1,78 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: postgres-pv-volume  # Sets PV's name
+  labels:
+    type: local  # Sets PV's type to local
+    app: postgres
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi # Sets PV Volume
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/mnt/data"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: postgres-pv-claim  # Sets name of PVC
+  labels:
+    app: postgres
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany  # Sets read and write access
+  resources:
+    requests:
+      storage: 10Gi  # Sets volume size
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres4
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres4
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgres4
+    spec:      
+      containers:
+      - image: postgres:10.13
+        name: postgres
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        env:
+        - name: POSTGRES_USER
+          value: testuser
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-passwd
+              key: PASSWORD
+        - name: POSTGRES_DB 
+          value: testdatabase
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        volumeMounts:
+        - name: postgres-pvc
+          mountPath: /var/lib/postgresql/data/
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+      volumes:
+      - name: postgres-pvc
+        persistentVolumeClaim:
+          claimName: postgres-pv-claim
